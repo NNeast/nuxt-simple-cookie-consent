@@ -1,0 +1,20 @@
+import { onConsentAccepted, onConsentDenied, onCategoryAccepted, onScriptsInjected, onScriptsRemoved } from '../composables/cookieConsentEvents.js';
+export declare function useCookieConsent(): {
+    preferences: any;
+    categories: string[];
+    categoryMeta: Record<string, import("../../types/cookies.js").CookieConsentCategory>;
+    scripts: import("../../types/cookies.js").CookieScript[];
+    acceptAll: () => void;
+    denyAll: () => void;
+    acceptCategories: (categories: string[]) => void;
+    updatePreferences: (newPrefs: Record<string, boolean>) => void;
+    resetPreferences: () => void;
+    hasUserMadeChoice: any;
+    consentTimestamp: any;
+    isConsentExpired: any;
+    onConsentAccepted: typeof onConsentAccepted;
+    onConsentDenied: typeof onConsentDenied;
+    onCategoryAccepted: typeof onCategoryAccepted;
+    onScriptsInjected: typeof onScriptsInjected;
+    onScriptsRemoved: typeof onScriptsRemoved;
+};

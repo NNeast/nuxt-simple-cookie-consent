@@ -1,0 +1,16 @@
+export { default as build } from './chunks/build.mjs';
+export { default as prepare } from './chunks/prepare.mjs';
+import 'node:fs';
+import 'node:url';
+import 'pathe';
+import 'pathe/utils';
+import 'pkg-types';
+import 'tsconfck';
+import 'defu';
+import 'jiti';
+import 'magic-regexp';
+import 'consola';
+import 'mlly';
+import 'citty';
+import 'typescript';
+import './shared/module-builder.WIar1ojq.mjs';

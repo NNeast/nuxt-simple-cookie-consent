@@ -1,0 +1,107 @@
+import { sendConsentToGTM } from "../utils/gtmConsent.js";
+import { injectScripts, removeScripts } from "../utils/scriptManager.js";
+import {
+  onConsentAccepted,
+  onConsentDenied,
+  onCategoryAccepted,
+  onScriptsInjected,
+  onScriptsRemoved,
+  emitCookieConsentEvent
+} from "../composables/cookieConsentEvents.js";
+import { useCookie, useRuntimeConfig, useState } from "#app";
+import { computed } from "#imports";
+export function useCookieConsent() {
+  const config = useRuntimeConfig().public.cookieConsent;
+  const cookieName = config.cookieName || "cookie_consent";
+  const expiresInDays = config.expiresInDays ?? 180;
+  const maxAgeInSeconds = expiresInDays * 24 * 60 * 60;
+  const expiresInMs = expiresInDays * 24 * 60 * 60 * 1e3;
+  const expiresDate = new Date(Date.now() + expiresInMs);
+  const cookieOptions = {
+    sameSite: "lax",
+    maxAge: maxAgeInSeconds,
+    expires: expiresDate,
+    path: "/"
+  };
+  const consentTimestamp = useCookie("cookie_consent_timestamp", cookieOptions);
+  const isConsentExpired = computed(() => {
+    return consentTimestamp.value ? Date.now() - consentTimestamp.value > expiresInMs : false;
+  });
+  const state = useState("cookieConsent", () => {
+    return useCookie(cookieName, cookieOptions).value || {};
+  });
+  const hasUserMadeChoice = computed(() => {
+    return Object.entries(config.categories).some(([key, meta]) => {
+      if (meta.required) return false;
+      return state.value[key] !== null && state.value[key] !== void 0;
+    });
+  });
+  function acceptAll() {
+    const all = Object.keys(config.categories).reduce((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {});
+    updatePreferences(all);
+    emitCookieConsentEvent({ type: "consentAccepted" });
+  }
+  function denyAll() {
+    const denied = Object.entries(config.categories).reduce((acc, [key, meta]) => {
+      acc[key] = meta.required ? true : false;
+      return acc;
+    }, {});
+    updatePreferences(denied);
+    emitCookieConsentEvent({ type: "consentDenied" });
+  }
+  function acceptCategories(categories) {
+    const prefs = Object.keys(config.categories).reduce((acc, key) => {
+      acc[key] = categories.includes(key);
+      return acc;
+    }, {});
+    updatePreferences(prefs);
+  }
+  function updatePreferences(newPrefs) {
+    const updated = {};
+    for (const [key, meta] of Object.entries(config.categories)) {
+      const isRequired = meta.required === true;
+      const userValue = newPrefs[key];
+      updated[key] = isRequired ? true : !!userValue;
+    }
+    state.value = updated;
+    useCookie(cookieName, cookieOptions).value = JSON.stringify(updated);
+    useCookie("cookie_consent_timestamp", cookieOptions).value = Date.now().toString();
+    useCookie("cookie_consent_version", cookieOptions).value = config.consentVersion || "1";
+    if (import.meta.client && Array.isArray(config.scripts)) {
+      removeScripts(updated);
+      injectScripts(config.scripts, updated, config.gtmConsentMapping);
+    }
+    if (import.meta.client && config.gtmConsentMapping) {
+      setTimeout(() => {
+        if (config.gtmConsentMapping) {
+          return sendConsentToGTM(updated, config.gtmConsentMapping);
+        }
+      }, 300);
+    }
+  }
+  function resetPreferences() {
+    denyAll();
+  }
+  return {
+    preferences: state,
+    categories: Object.keys(config.categories),
+    categoryMeta: config.categories,
+    scripts: config.scripts,
+    acceptAll,
+    denyAll,
+    acceptCategories,
+    updatePreferences,
+    resetPreferences,
+    hasUserMadeChoice,
+    consentTimestamp,
+    isConsentExpired,
+    onConsentAccepted,
+    onConsentDenied,
+    onCategoryAccepted,
+    onScriptsInjected,
+    onScriptsRemoved
+  };
+}
